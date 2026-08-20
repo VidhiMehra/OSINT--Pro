@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>OSINT Pro — Intelligence Gathering</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --black:#000;
+  --dark:#050f05;
+  --card:#0a160a;
+  --neon:#00ff41;
+  --neon2:#00cc33;
+  --neon-dim:#00ff4144;
+  --neon-glow:0 0 10px #00ff4166,0 0 20px #00ff4133;
+  --border:#00ff4122;
+  --muted:#00ff4166;
+  --text:#00ff41cc;
+}
+body{
+  background:var(--black);color:var(--neon);
+  font-family:'Share Tech Mono',monospace;
+  min-height:100vh;overflow-x:hidden;
+}
+
+/* MATRIX RAIN CANVAS */
+#matrix-canvas{
+  position:fixed;inset:0;z-index:0;opacity:0.06;pointer-events:none;
+}
+
+/* SCANLINE */
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:998;
+  background:repeating-linear-gradient(
+    0deg,transparent,transparent 3px,
+    rgba(0,255,65,0.01) 3px,rgba(0,255,65,0.01) 4px);
+}
+
+/* LAYOUT */
+.wrap{position:relative;z-index:1;max-width:1000px;margin:0 auto;padding:20px}
+
+/* BOOT SEQUENCE */
+.boot{
+  text-align:center;padding:32px 20px 24px;
+  border-bottom:1px solid var(--border);margin-bottom:28px;
+}
+.boot-logo{
+  font-family:'Orbitron',monospace;font-size:36px;font-weight:900;
+  color:var(--neon);text-shadow:var(--neon-glow);
+  letter-spacing:8px;margin-bottom:8px;
+  animation:flicker 5s infinite;
+}
+@keyframes flicker{
+  0%,95%,100%{opacity:1}
+  96%{opacity:0.4}97%{opacity:1}98%{opacity:0.6}99%{opacity:1}
+}
+.boot-sub{
+  font-size:11px;color:var(--muted);letter-spacing:4px;margin-bottom:16px;
+}
+.boot-tags{display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
+.boot-tag{
+  padding:4px 12px;border:1px solid var(--border);
+  color:var(--muted);font-size:11px;letter-spacing:2px;
+}
+
+/* STATUS BAR */
+.status-bar{
+  display:flex;gap:24px;flex-wrap:wrap;
+  background:var(--card);border:1px solid var(--border);
+  padding:10px 16px;margin-bottom:24px;font-size:11px;
+}
+.status-item{display:flex;align-items:center;gap:6px;color:var(--muted)}
+.status-item span{color:var(--neon)}
+.blink{animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* TABS */
+.tabs{display:flex;gap:0;margin-bottom:20px;overflow-x:auto}
+.tab{
+  padding:10px 20px;border:1px solid var(--border);border-right:none;
+  background:transparent;color:var(--muted);
+  font-family:'Share Tech Mono',monospace;font-size:12px;
+  cursor:pointer;letter-spacing:1px;transition:all 0.2s;white-space:nowrap;
+}
+.tab:last-child{border-right:1px solid var(--border)}
+.tab.active{
+  background:var(--neon-dim);color:var(--neon);
+  text-shadow:0 0 8px var(--neon);
+}
+.tab:hover:not(.active){background:rgba(0,255,65,0.05);color:var(--neon)}
+
+/* PANELS */
+.panel{display:none}.panel.active{display:block}
+
+/* INPUT */
+.input-label{font-size:11px;color:var(--muted);letter-spacing:3px;margin-bottom:8px}
+.input-row{display:flex;gap:8px;margin-bottom:16px}
+.neon-input{
+  flex:1;background:var(--card);border:1px solid var(--border);
+  color:var(--neon);font-family:'Share Tech Mono',monospace;font-size:14px;
+  padding:12px 16px;outline:none;transition:all 0.2s;
+}
+.neon-input:focus{
+  border-color:var(--neon);
+  box-shadow:0 0 10px var(--neon-dim);
+}
+.neon-input::placeholder{color:#00ff4133}
+.neon-btn{
+  padding:12px 24px;background:transparent;
+  border:1px solid var(--neon);color:var(--neon);
+  font-family:'Share Tech Mono',monospace;font-size:13px;
+  cursor:pointer;letter-spacing:2px;transition:all 0.2s;white-space:nowrap;
+  text-shadow:0 0 6px var(--neon);
+}
+.neon-btn:hover{
+  background:var(--neon-dim);
+  box-shadow:var(--neon-glow);
+}
+.neon-btn:active{transform:scale(0.98)}
+
+/* RESULT CARD */
+.result-card{
+  background:var(--card);border:1px solid var(--border);
+  padding:20px;margin-top:12px;display:none;
+}
+.result-card.show{display:block}
+.result-title{
+  font-size:11px;color:var(--muted);letter-spacing:3px;
+  margin-bottom:14px;padding-bottom:10px;
+  border-bottom:1px solid var(--border);
+}
+.data-row{
+  display:flex;justify-content:space-between;
+  padding:8px 0;border-bottom:1px solid rgba(0,255,65,0.07);
+  font-size:13px;gap:16px;
+}
+.data-row:last-child{border:none}
+.data-key{color:var(--muted);min-width:140px;letter-spacing:1px;font-size:11px}
+.data-val{color:var(--neon);text-align:right;word-break:break-all}
+.data-val.highlight{
+  color:#fff;text-shadow:0 0 8px var(--neon);
+}
+
+/* STATUS TAGS */
+.tag{
+  display:inline-block;padding:2px 10px;font-size:11px;
+  letter-spacing:1px;border:1px solid;
+}
+.tag-found{color:var(--neon);border-color:var(--neon);background:var(--neon-dim)}
+.tag-notfound{color:#ff4444;border-color:#ff4444;background:rgba(255,68,68,0.1)}
+.tag-unknown{color:#ffaa00;border-color:#ffaa00;background:rgba(255,170,0,0.1)}
+
+/* PLATFORM GRID */
+.plat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-top:12px}
+.plat-card{
+  background:var(--dark);border:1px solid var(--border);
+  padding:12px 14px;cursor:pointer;transition:all 0.2s;
+}
+.plat-card:hover{border-color:var(--neon);box-shadow:0 0 8px var(--neon-dim)}
+.plat-name{font-size:13px;margin-bottom:6px;color:var(--neon)}
+.plat-url{font-size:10px;color:#00ff4144;word-break:break-all}
+
+/* DNS GRID */
+.dns-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.dns-card{background:var(--dark);border:1px solid var(--border);padding:12px}
+.dns-type{color:var(--neon);font-size:12px;letter-spacing:2px;margin-bottom:6px}
+.dns-val{color:var(--muted);font-size:11px;line-height:1.8;word-break:break-all}
+
+/* LOADING */
+.loading{
+  text-align:center;padding:32px;color:var(--muted);
+  font-size:13px;letter-spacing:2px;
+}
+.loading::before{
+  content:'[ ';color:var(--neon);
+}
+.loading::after{
+  content:' ]';color:var(--neon);
+  animation:blink 0.5s infinite;
+}
+
+/* SUMMARY BAR */
+.summary{
+  display:flex;gap:16px;flex-wrap:wrap;
+  background:var(--dark);border:1px solid var(--border);
+  padding:10px 16px;margin-bottom:12px;font-size:12px;
+}
+.sum-item{display:flex;align-items:center;gap:6px}
+.sum-num{font-size:18px;font-weight:bold;text-shadow:0 0 8px currentColor}
+
+/* EMAIL RISK */
+.risk-high{color:#ff4444;text-shadow:0 0 8px #ff4444}
+.risk-medium{color:#ffaa00;text-shadow:0 0 8px #ffaa00}
+.risk-low{color:var(--neon);text-shadow:var(--neon-glow)}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--dark)}
+::-webkit-scrollbar-thumb{background:var(--border)}
+::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+</style>
+</head>
+<body>
+
+<canvas id="matrix-canvas"></canvas>
+
+<div class="wrap">
+
+  <div class="boot">
+    <div class="boot-logo">[ OSINT ]</div>
+    <div class="boot-sub">OPEN SOURCE INTELLIGENCE GATHERING SYSTEM v3.0</div>
+    <div class="boot-tags">
+      <div class="boot-tag">IP RECON</div>
+      <div class="boot-tag">WHOIS</div>
+      <div class="boot-tag">DNS</div>
+      <div class="boot-tag">USERNAME</div>
+      <div class="boot-tag">EMAIL OSINT</div>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <div class="status-item">SYS_STATUS: <span>ONLINE</span></div>
+    <div class="status-item">MODULES: <span>7 LOADED</span></div>
+    <div class="status-item">DATA_SRC: <span>PUBLIC APIs</span></div>
+    <div class="status-item">CURSOR: <span class="blink">█</span></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('ip',this)">[ IP ]</button>
+    <button class="tab" onclick="switchTab('whois',this)">[ WHOIS ]</button>
+    <button class="tab" onclick="switchTab('dns',this)">[ DNS ]</button>
+    <button class="tab" onclick="switchTab('username',this)">[ USERNAME ]</button>
+    <button class="tab" onclick="switchTab('email',this)">[ EMAIL ]</button>
+    <button class="tab" onclick="switchTab('ports',this)">[ PORTS ]</button>
+    <button class="tab" onclick="switchTab('subdomains',this)">[ SUBDOMAINS ]</button>
+  </div>
+
+  <!-- IP -->
+  <div id="tab-ip" class="panel active">
+    <div class="input-label">// TARGET IP ADDRESS</div>
+    <div class="input-row">
+      <input class="neon-input" id="ip-input" placeholder="e.g. 8.8.8.8"/>
+      <button class="neon-btn" onclick="lookup('ip')">EXECUTE</button>
+      <button class="neon-btn" onclick="myIP()" style="border-color:var(--muted);color:var(--muted)">MY IP</button>
+    </div>
+    <div id="ip-result" class="result-card"></div>
+  </div>
+
+  <!-- WHOIS -->
+  <div id="tab-whois" class="panel">
+    <div class="input-label">// TARGET DOMAIN</div>
+    <div class="input-row">
+      <input class="neon-input" id="whois-input" placeholder="e.g. google.com"/>
+      <button class="neon-btn" onclick="lookup('whois')">EXECUTE</button>
+    </div>
+    <div id="whois-result" class="result-card"></div>
+  </div>
+
+  <!-- DNS -->
+  <div id="tab-dns" class="panel">
+    <div class="input-label">// TARGET DOMAIN</div>
+    <div class="input-row">
+      <input class="neon-input" id="dns-input" placeholder="e.g. github.com"/>
+      <button class="neon-btn" onclick="lookup('dns')">EXECUTE</button>
+    </div>
+    <div id="dns-result" class="result-card"></div>
+  </div>
+
+  <!-- USERNAME -->
+  <div id="tab-username" class="panel">
+    <div class="input-label">// TARGET USERNAME</div>
+    <div class="input-row">
+      <input class="neon-input" id="username-input" placeholder="e.g. johndoe"/>
+      <button class="neon-btn" onclick="lookup('username')">EXECUTE</button>
+    </div>
+    <div id="username-result" class="result-card"></div>
+  </div>
+
+  <!-- EMAIL -->
+  <div id="tab-email" class="panel">
+    <div class="input-label">// TARGET EMAIL</div>
+    <div class="input-row">
+      <input class="neon-input" id="email-input" placeholder="e.g. target@domain.com"/>
+      <button class="neon-btn" onclick="lookup('email')">EXECUTE</button>
+    </div>
+    <div id="email-result" class="result-card"></div>
+  </div>
+
+  <!-- PORTS -->
+  <div id="tab-ports" class="panel">
+    <div class="input-label">// TARGET IP OR DOMAIN</div>
+    <div class="input-row">
+      <input class="neon-input" id="ports-input" placeholder="e.g. google.com"/>
+      <button class="neon-btn" onclick="lookup('ports')">EXECUTE</button>
+    </div>
+    <div id="ports-result" class="result-card"></div>
+  </div>
+
+  <!-- SUBDOMAINS -->
+  <div id="tab-subdomains" class="panel">
+    <div class="input-label">// TARGET DOMAIN</div>
+    <div class="input-row">
+      <input class="neon-input" id="subdomains-input" placeholder="e.g. google.com"/>
+      <button class="neon-btn" onclick="lookup('subdomains')">EXECUTE</button>
+    </div>
+    <div id="subdomains-result" class="result-card"></div>
+  </div>
+
+</div>
+
+<script>
+// MATRIX RAIN
+const canvas=document.getElementById('matrix-canvas');
+const ctx=canvas.getContext('2d');
+canvas.width=window.innerWidth;
+canvas.height=window.innerHeight;
+const cols=Math.floor(canvas.width/20);
+const drops=Array(cols).fill(1);
+function drawMatrix(){
+  ctx.fillStyle='rgba(0,0,0,0.05)';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle='#00ff41';
+  ctx.font='15px Share Tech Mono';
+  drops.forEach((y,i)=>{
+    const char=String.fromCharCode(0x30A0+Math.random()*96);
+    ctx.fillText(char,i*20,y*20);
+    if(y*20>canvas.height&&Math.random()>0.975) drops[i]=0;
+    drops[i]++;
+  });
+}
+setInterval(drawMatrix,50);
+window.addEventListener('resize',()=>{
+  canvas.width=window.innerWidth;
+  canvas.height=window.innerHeight;
+});
+
+function switchTab(name,btn){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+}
+
+function row(key,val,highlight=false){
+  return `<div class="data-row">
+    <span class="data-key">${key}</span>
+    <span class="data-val ${highlight?'highlight':''}">${val}</span>
+  </div>`;
+}
+
+function showLoading(id){
+  const el=document.getElementById(id);
+  el.className='result-card show';
+  el.innerHTML='<div class="loading">GATHERING INTELLIGENCE</div>';
+}
+
+async function lookup(type){
+  const inputs={
+    ip:'ip-input',whois:'whois-input',dns:'dns-input',
+    username:'username-input',email:'email-input',
+    ports:'ports-input',subdomains:'subdomains-input'
+  };
+  const val=document.getElementById(inputs[type]).value.trim();
+  if(!val) return;
+  const resultId=type+'-result';
+  showLoading(resultId);
+  const el=document.getElementById(resultId);
+
+  const bodies={
+    ip:{ip:val},whois:{domain:val},dns:{domain:val},
+    username:{username:val},email:{email:val},
+    ports:{target:val},subdomains:{domain:val}
+  };
+  const endpoints={
+    ip:'/api/ip',whois:'/api/whois',dns:'/api/dns',
+    username:'/api/username',email:'/api/email',
+    ports:'/api/ports',subdomains:'/api/subdomains'
+  };
+
+  try{
+    const res=await fetch(endpoints[type],{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(bodies[type])
+    });
+    const d=await res.json();
+    if(d.error){
+      el.innerHTML=`<div style="color:#ff4444;font-size:13px">[ ERROR ] ${d.error}</div>`;
+      return;
+    }
+
+    if(type==='ip'){
+      el.innerHTML=`
+        <div class="result-title">// IP INTELLIGENCE REPORT</div>
+        ${row('IP_ADDRESS',d.ip,true)}
+        ${row('CITY',d.city||'N/A')}
+        ${row('REGION',d.region||'N/A')}
+        ${row('COUNTRY',d.country||'N/A')}
+        ${row('ISP_ORG',d.org||'N/A')}
+        ${row('ASN',d.asn||'N/A')}
+        ${row('TIMEZONE',d.timezone||'N/A')}
+        ${row('COORDINATES',`${d.latitude}, ${d.longitude}`)}`;
+    }
+    else if(type==='whois'){
+      el.innerHTML=`
+        <div class="result-title">// WHOIS INTELLIGENCE REPORT</div>
+        ${row('DOMAIN',d.domain,true)}
+        ${row('REGISTRAR',d.registrar||'N/A')}
+        ${row('CREATED',d.created||'N/A')}
+        ${row('EXPIRES',d.expires||'N/A')}
+        ${row('NAME_SERVERS',d.name_servers||'N/A')}
+        ${row('STATUS',d.status||'N/A')}`;
+    }
+    else if(type==='dns'){
+      let html='<div class="result-title">// DNS INTELLIGENCE REPORT</div><div class="dns-grid">';
+      for(const [t,vals] of Object.entries(d)){
+        html+=`<div class="dns-card">
+          <div class="dns-type">[ ${t} ] — ${vals.length} records</div>
+          <div class="dns-val">${vals.length?vals.join('<br>'):'No records found'}</div>
+        </div>`;
+      }
+      html+='</div>';
+      el.innerHTML=html;
+    }
+    else if(type==='username'){
+      const found=d.filter(p=>p.found===true);
+      const notfound=d.filter(p=>p.found===false);
+      let html=`
+        <div class="result-title">// USERNAME INTELLIGENCE REPORT</div>
+        <div class="summary">
+          <div class="sum-item"><span class="sum-num" style="color:var(--neon)">${found.length}</span>&nbsp;FOUND</div>
+          <div class="sum-item"><span class="sum-num" style="color:#ff4444">${notfound.length}</span>&nbsp;NOT FOUND</div>
+          <div class="sum-item"><span class="sum-num" style="color:var(--muted)">${d.length}</span>&nbsp;TOTAL CHECKED</div>
+        </div>
+        <div class="plat-grid">`;
+      d.forEach(p=>{
+        const tagCls=p.found===true?'tag-found':p.found===false?'tag-notfound':'tag-unknown';
+        const label=p.found===true?'FOUND':p.found===false?'NOT FOUND':'UNKNOWN';
+        html+=`<div class="plat-card" onclick="${p.found!==false?`window.open('${p.url}','_blank')`:''}" >
+          <div class="plat-name">${p.name} <span class="tag ${tagCls}">${label}</span></div>
+          ${p.found!==false?`<div class="plat-url">${p.url}</div>`:''}
+        </div>`;
+      });
+      html+='</div>';
+      el.innerHTML=html;
+    }
+    else if(type==='email'){
+      const riskCls=d.risk==='HIGH'?'risk-high':d.risk==='MEDIUM'?'risk-medium':'risk-low';
+      el.innerHTML=`
+        <div class="result-title">// EMAIL INTELLIGENCE REPORT</div>
+        ${row('EMAIL_ADDRESS',d.username+'@'+d.domain,true)}
+        ${row('USERNAME',d.username)}
+        ${row('DOMAIN',d.domain)}
+        ${row('TLD','.'+d.tld)}
+        ${row('PROVIDER_TYPE',d.provider)}
+        ${row('DISPOSABLE',d.disposable?'<span style="color:#ff4444">YES — SUSPICIOUS</span>':'<span style="color:var(--neon)">NO</span>')}
+        ${row('RISK_LEVEL',`<span class="${riskCls}">${d.risk}</span>`)}
+        ${row('PATTERNS',d.patterns.length?d.patterns.join(', '):'None detected')}
+        <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
+          <div class="input-label" style="margin-bottom:8px">// EXTERNAL INTELLIGENCE</div>
+          <a href="${d.hibp}" target="_blank" style="color:var(--muted);font-size:12px;display:block;margin-bottom:4px">→ HaveIBeenPwned: ${d.hibp}</a>
+          <a href="${d.epieos}" target="_blank" style="color:var(--muted);font-size:12px;display:block">→ Epieos OSINT: ${d.epieos}</a>
+        </div>`;
+    }
+    else if(type==='ports'){
+      const open=d.results.filter(r=>r.open);
+      let html=`
+        <div class="result-title">// PORT SCAN REPORT — ${d.ip}</div>
+        <div class="summary">
+          <div class="sum-item"><span class="sum-num" style="color:var(--neon)">${open.length}</span>&nbsp;OPEN</div>
+          <div class="sum-item"><span class="sum-num" style="color:#ff4444">${d.results.length-open.length}</span>&nbsp;CLOSED</div>
+        </div>
+        <div class="plat-grid">`;
+      d.results.forEach(r=>{
+        const cls=r.open?'tag-found':'tag-notfound';
+        const label=r.open?'OPEN':'CLOSED';
+        html+=`<div class="plat-card">
+          <div class="plat-name">${r.service} <span class="tag ${cls}">${label}</span></div>
+          <div class="plat-url">PORT ${r.port}</div>
+        </div>`;
+      });
+      html+='</div>';
+      el.innerHTML=html;
+    }
+    else if(type==='subdomains'){
+      let html=`
+        <div class="result-title">// SUBDOMAIN INTELLIGENCE — ${d.domain}</div>`;
+      if(!d.found.length){
+        html+=`<div style="color:var(--muted);font-size:13px;padding:16px 0">[ NO SUBDOMAINS DISCOVERED ]</div>`;
+      } else {
+        html+=`<div class="summary">
+          <div class="sum-item"><span class="sum-num" style="color:var(--neon)">${d.total}</span>&nbsp;DISCOVERED</div>
+        </div>`;
+        d.found.forEach(s=>{
+          html+=`${row('SUBDOMAIN',`<a href="http://${s.subdomain}" target="_blank" style="color:var(--neon)">${s.subdomain}</a>`)}`;
+        });
+      }
+      el.innerHTML=html;
+    }
+  }catch(e){
+    el.innerHTML=`<div style="color:#ff4444;font-size:13px">[ CONNECTION ERROR ] ${e.message}</div>`;
+  }
+}
+
+async function myIP(){
+  showLoading('ip-result');
+  const res=await fetch('https://ipapi.co/json/');
+  const d=await res.json();
+  document.getElementById('ip-input').value=d.ip;
+  lookup('ip');
+}
+
+// Enter key support
+document.querySelectorAll('.neon-input').forEach(inp=>{
+  inp.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){
+      const type=inp.id.replace('-input','');
+      lookup(type);
+    }
+  });
+});
+</script>
+</body>
+</html>
